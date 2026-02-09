@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import { ShadowCard } from "../../components/ui/ShadowCard";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
 
-const INCIDENTS = [
-  "Fire Detected",
-  "Person Fallen",
-  "Unauthorized Entry",
+type IncidentItem = { label: string; icon: keyof typeof Ionicons.glyphMap };
+
+const INCIDENTS: IncidentItem[] = [
+  { label: "Fire Detected", icon: "flame" },
+  { label: "Person Fallen", icon: "person" },
+  { label: "Unauthorized Entry", icon: "lock-closed" },
 ];
 
 export default function Incidents() {
@@ -23,7 +25,6 @@ export default function Incidents() {
         entering={FadeIn.duration(400)}
         style={[styles.header, { paddingHorizontal: 20 }]}
       >
-        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Incident History</Text>
         <View style={styles.avatar}>
           <Ionicons name="person" size={20} color="#8e8e93" />
@@ -35,7 +36,7 @@ export default function Incidents() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {INCIDENTS.map((label, idx) => (
+        {INCIDENTS.map((item, idx) => (
           <AnimatedListItem key={idx} index={idx}>
             <Pressable
               onPress={() =>
@@ -46,32 +47,34 @@ export default function Incidents() {
               <ShadowCard
                 delay={0}
                 index={idx}
-                style={[
+                style={StyleSheet.flatten([
                   styles.incidentCard,
-                  resolved.includes(idx) && styles.incidentCardResolved,
-                ]}
+                  ...(resolved.includes(idx) ? [styles.incidentCardResolved] : []),
+                ])}
               >
-                <View style={styles.incidentRow}>
+                <View style={styles.cardInner}>
                   <View
                     style={[
-                      styles.incidentIconWrap,
-                      resolved.includes(idx) ? styles.incidentIconResolved : styles.incidentIconPending,
+                      styles.iconBox,
+                      resolved.includes(idx) ? styles.iconBoxResolved : styles.iconBoxPending,
                     ]}
                   >
                     <Ionicons
-                      name={resolved.includes(idx) ? "checkmark-circle" : "alert-circle-outline"}
-                      size={24}
-                      color={resolved.includes(idx) ? "#22c55e" : "#f59e0b"}
+                      name={resolved.includes(idx) ? "checkmark-circle" : item.icon}
+                      size={32}
+                      color={resolved.includes(idx) ? "#22c55e" : "#EAB308"}
                     />
                   </View>
-                  <View style={styles.incidentContent}>
-                    <Text style={styles.incidentTitle}>{label}</Text>
+                  <View style={styles.cardText}>
+                    <Text style={styles.incidentTitle}>{item.label}</Text>
                     <Text style={styles.incidentMeta}>
                       {resolved.includes(idx) ? "Resolved" : "Tap to mark resolved"}
                     </Text>
                   </View>
                   {resolved.includes(idx) ? (
-                    <Ionicons name="checkmark-done" size={20} color="#22c55e" />
+                    <View style={styles.doneBadge}>
+                      <Ionicons name="checkmark-done" size={22} color="#22c55e" />
+                    </View>
                   ) : null}
                 </View>
               </ShadowCard>
@@ -92,8 +95,11 @@ const styles = StyleSheet.create({
     height: 52,
     paddingVertical: 8,
   },
-  headerSpacer: { width: 40, height: 40 },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#e5e5e5" },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#e5e5e5",
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -103,18 +109,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
-  incidentCard: { marginBottom: 12 },
-  incidentCardResolved: { backgroundColor: "rgba(34,197,94,0.12)" },
-  incidentRow: {
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
+  incidentCard: {
+    marginBottom: 16,
+    borderRadius: 24,
+    overflow: "hidden",
+    minHeight: 120,
+  },
+  incidentCardResolved: { backgroundColor: "rgba(34,197,94,0.14)" },
+  cardInner: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 4,
+    padding: 24,
+    flex: 1,
   },
-  incidentIconWrap: { marginRight: 14 },
-  incidentIconPending: {},
-  incidentIconResolved: {},
-  incidentContent: { flex: 1 },
-  incidentTitle: { fontSize: 16, fontWeight: "600", color: "#e5e5e5" },
-  incidentMeta: { fontSize: 13, color: "#8e8e93", marginTop: 2 },
+  iconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 18,
+  },
+  iconBoxPending: { backgroundColor: "rgba(234,179,8,0.18)" },
+  iconBoxResolved: { backgroundColor: "rgba(34,197,94,0.2)" },
+  cardText: { flex: 1 },
+  incidentTitle: { fontSize: 18, fontWeight: "700", color: "#e5e5e5" },
+  incidentMeta: { fontSize: 14, color: "#8e8e93", marginTop: 4 },
+  doneBadge: { marginLeft: 8 },
 });
