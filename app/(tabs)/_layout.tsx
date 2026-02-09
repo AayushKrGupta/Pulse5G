@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HapticTab } from "@/components/haptic-tab";
 
 const TAB_BAR_HEIGHT = 64;
-const FLOATING_MARGIN_H = 20;
+const FLOATING_MARGIN_H = 36;
 const FLOATING_MARGIN_BOTTOM = 16;
 
 export default function TabLayout() {
@@ -68,9 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="cameras"
         options={{
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon name="videocam" color={color} size={24} focused={focused} />
-          ),
+          href: null,
         }}
       />
     </Tabs>
