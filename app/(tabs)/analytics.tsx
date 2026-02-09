@@ -1,5 +1,5 @@
 import { getAnalytics } from "@/src/services/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -15,14 +15,35 @@ import { Ionicons } from "@expo/vector-icons";
 import { ShadowCard } from "../../components/ui/ShadowCard";
 
 const PERIODS = ["Week", "Month", "Year"] as const;
-const CHART_LABELS = ["Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
-const CHART_VALUES = [320, 410, 280, 530, 380, 460, 500];
+type Period = (typeof PERIODS)[number];
+
+// Chart data per period – bars and labels change when period changes
+const CHART_DATA: Record<
+  Period,
+  { labels: string[]; values: number[] }
+> = {
+  Week: {
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    values: [24, 18, 32, 28, 41, 35, 22],
+  },
+  Month: {
+    labels: ["W1", "W2", "W3", "W4"],
+    values: [98, 124, 87, 156],
+  },
+  Year: {
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    values: [320, 410, 280, 530, 380, 460, 500, 440, 520, 390, 470, 510],
+  },
+};
+
+const BAR_COLOR = "#EAB308";
 const BOTTOM_PADDING = 120;
+const CHART_BAR_MAX_HEIGHT = 140;
 
 export default function Analytics() {
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<any>(null);
-  const [period, setPeriod] = useState<typeof PERIODS[number]>("Week");
+  const [period, setPeriod] = useState<Period>("Week");
 
   useEffect(() => {
     getAnalytics().then(setStats).catch(() =>
@@ -30,9 +51,17 @@ export default function Analytics() {
     );
   }, []);
 
+  const { labels, values } = useMemo(
+    () => CHART_DATA[period],
+    [period]
+  );
+  const maxVal = useMemo(
+    () => Math.max(...values, 1),
+    [values]
+  );
+
   const critical = stats?.critical ?? 0;
   const warning = stats?.warning ?? 0;
-  const maxVal = Math.max(...CHART_VALUES, 1);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -40,7 +69,6 @@ export default function Analytics() {
         entering={FadeIn.duration(400)}
         style={[styles.header, { paddingHorizontal: 20 }]}
       >
-        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Analytics</Text>
         <View style={styles.avatar}>
           <Ionicons name="person" size={20} color="#8e8e93" />
@@ -77,25 +105,28 @@ export default function Analytics() {
         <ShadowCard delay={100} index={0} style={styles.chartCard}>
           <View style={styles.chartInner}>
             <View style={styles.chartYAxis}>
-              <Text style={styles.chartYLabel}>{Math.max(...CHART_VALUES)}</Text>
+              <Text style={styles.chartYLabel}>{maxVal}</Text>
               <Text style={styles.chartYLabel}>0</Text>
             </View>
-            <View style={styles.chartBarsWrap}>
-              {CHART_VALUES.map((val, i) => (
-                <View key={i} style={styles.barCol}>
+            <View style={styles.chartBarsWrap} key={period}>
+              {values.map((val, i) => (
+                <View key={`${period}-${i}`} style={styles.barCol}>
                   <Animated.View
-                    entering={FadeInDown.delay(150 + i * 40).springify()}
+                    entering={FadeInDown.delay(80 + i * 30).springify()}
                     style={[
                       styles.chartBar,
-                      { height: Math.max(8, (val / maxVal) * 120) },
+                      {
+                        height: Math.max(8, (val / maxVal) * CHART_BAR_MAX_HEIGHT),
+                        backgroundColor: BAR_COLOR,
+                      },
                     ]}
                   />
                 </View>
               ))}
             </View>
             <View style={styles.chartXAxis}>
-              {CHART_LABELS.map((l, i) => (
-                <Text key={i} style={styles.chartXLabel}>
+              {labels.map((l, i) => (
+                <Text key={`${period}-x-${i}`} style={styles.chartXLabel} numberOfLines={1}>
                   {l}
                 </Text>
               ))}
@@ -136,10 +167,9 @@ const styles = StyleSheet.create({
     height: 52,
     paddingVertical: 8,
   },
-  headerSpacer: { width: 40, height: 40 },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: "#e5e5e5",
   },
   avatar: {
@@ -151,7 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
   periodWrap: {
     flexDirection: "row",
     backgroundColor: "#1c1c1e",
@@ -165,27 +195,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 10,
   },
-  periodTabActive: { backgroundColor: "rgba(255,255,255,0.1)" },
+  periodTabActive: { backgroundColor: "rgba(234,179,8,0.25)" },
   periodText: { fontSize: 15, fontWeight: "600", color: "#8e8e93" },
-  periodTextActive: { color: "#e5e5e5" },
-  chartCard: { marginBottom: 20 },
-  chartInner: { padding: 20 },
+  periodTextActive: { color: "#EAB308", fontWeight: "700" },
+  chartCard: { marginBottom: 24, borderRadius: 24, overflow: "hidden" },
+  chartInner: { padding: 24, paddingLeft: 36 },
   chartYAxis: {
     position: "absolute",
-    left: 20,
-    top: 20,
-    bottom: 44,
+    left: 24,
+    top: 24,
+    bottom: 52,
     justifyContent: "space-between",
   },
-  chartYLabel: { fontSize: 11, color: "#8e8e93" },
+  chartYLabel: { fontSize: 11, color: "#8e8e93", fontWeight: "600" },
   chartBarsWrap: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    height: 140,
-    marginLeft: 44,
+    height: CHART_BAR_MAX_HEIGHT,
+    marginLeft: 8,
     marginRight: 8,
-    gap: 8,
+    gap: 6,
   },
   barCol: {
     flex: 1,
@@ -194,32 +224,36 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   chartBar: {
-    width: "100%",
+    width: "80%",
     minHeight: 8,
-    backgroundColor: "#eef2f6",
-    borderRadius: 8,
+    borderRadius: 10,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: "#EAB308",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
       },
-      android: { elevation: 2 },
+      android: { elevation: 4 },
     }),
   },
   chartXAxis: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginLeft: 44,
-    marginTop: 8,
+    marginLeft: 8,
+    marginTop: 12,
     paddingRight: 8,
   },
-  chartXLabel: { fontSize: 11, color: "#8e8e93" },
+  chartXLabel: {
+    flex: 1,
+    fontSize: 10,
+    color: "#8e8e93",
+    textAlign: "center",
+  },
   summarySection: {
     backgroundColor: "#1c1c1e",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -234,13 +268,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   summaryRowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.06)",
   },
-  summaryLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  summaryLabelRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   summaryLabel: { fontSize: 15, color: "#8e8e93", fontWeight: "500" },
-  summaryValue: { fontSize: 17, fontWeight: "700", color: "#e5e5e5" },
+  summaryValue: { fontSize: 18, fontWeight: "700", color: "#e5e5e5" },
 });
