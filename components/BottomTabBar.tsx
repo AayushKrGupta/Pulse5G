@@ -163,13 +163,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-evenly",
     alignItems: "center",
     width: "100%",
+    flex: 1,
   },
 
   tabItem: {
     flex: 1,
-    paddingVertical: 4,
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: 4,
   },
 
   iconWrap: {
