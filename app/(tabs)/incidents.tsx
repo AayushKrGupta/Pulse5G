@@ -25,7 +25,7 @@ const INITIAL_INCIDENTS = [
 export default function IncidentsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
+  const incidents = INITIAL_INCIDENTS;
   const [refreshing, setRefreshing] = useState(false);
   const theme = Colors.dark;
 
