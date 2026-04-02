@@ -1,181 +1,98 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Platform, StyleSheet, View, type ViewStyle } from "react-native";
+import React from 'react';
+import { Platform, StyleSheet, View, Text } from "react-native";
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as LucideIcons from 'lucide-react-native';
+import { Colors } from '../constants/theme';
 
-// ─── Customize these to match the reference UI ──────────────────────────────
+/**
+ * Spotify-inspired Bottom Navigation Bar
+ * Optimized for Pulse 5G with Yellow Accent
+ */
 
 export const TAB_BAR_CONFIG = {
-  height: 68,
-  marginHorizontalPercent: 18,
-  marginBottom: 24,
-  paddingVertical: 10,
-  paddingHorizontal: 6,
-  backgroundColor: "#1c1c1e",
-  activeTintColor: "#EAB308",
-  inactiveTintColor: "#e5e5e5",
-  activeItemBackground: "#713F12",
-  iconSize: 24,
-  iconWrapSize: 40,
-  labelFontSize: 11,
-  labelActiveColor: "#EAB308",
-  labelInactiveColor: "#9ca3af",
-  itemPaddingVertical: 8,
-  itemPaddingHorizontal: 12,
-  itemBorderRadius: 16,
-  shadow: Platform.select({
-    ios: {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.45,
-      shadowRadius: 20,
-    },
-    android: { elevation: 16 },
-  }),
+  activeTintColor: '#FFFFFF',
+  inactiveTintColor: '#B3B3B3',
+  accentColor: '#EAB308',
+  backgroundColor: 'transparent',
 } as const;
 
-
-// ─── Floating background (pill shape: semicircle on both ends) ───────────────
-
 export function TabBarBackground() {
-  const { height, backgroundColor, shadow } = TAB_BAR_CONFIG;
-  const borderRadius = height / 2;
-
   return (
-    <View
-      style={[
-        StyleSheet.absoluteFill,
-        {
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          backgroundColor,
-          borderRadius,
-          ...shadow,
-        },
-      ]}
-    />
+    <View style={StyleSheet.absoluteFill}>
+      <LinearGradient
+        colors={['transparent', 'rgba(0, 0, 0, 0.8)', 'rgba(0,0,0,1)']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      {Platform.OS === 'ios' && (
+        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+      )}
+    </View>
   );
 }
 
-
-// ─── Icon with optional active-state wrapper ───────────────────────────────
-
 export type TabBarIconProps = {
-  name: keyof typeof Ionicons.glyphMap;
+  name: string;
   color: string;
   size?: number;
   focused?: boolean;
 };
 
-export function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
-  const outlineName = `${name}-outline` as keyof typeof Ionicons.glyphMap;
-  const iconSize = size ?? TAB_BAR_CONFIG.iconSize;
-  const { iconWrapSize } = TAB_BAR_CONFIG;
+export function TabBarIcon({ name, color, size = 24, focused }: TabBarIconProps) {
+  // Map Ionicons names to Lucide names if needed, or just use the name directly
+  // Common mapping for Pulse 5G:
+  const iconMap: Record<string, any> = {
+    'home': LucideIcons.Home,
+    'alert-circle': LucideIcons.AlertCircle,
+    'stats-chart': LucideIcons.Activity,
+    'camera': LucideIcons.Camera,
+  };
+
+  const IconComponent = iconMap[name] || LucideIcons.HelpCircle;
 
   return (
-    <View style={[styles.iconWrap, { width: iconWrapSize, height: iconWrapSize }]}>
-      <Ionicons
-        name={focused ? name : outlineName}
-        size={iconSize}
-        color={color}
-      />
-    </View>
+    <IconComponent 
+      size={size} 
+      color={focused ? TAB_BAR_CONFIG.accentColor : color} 
+      strokeWidth={focused ? 2.5 : 2} 
+    />
   );
 }
 
-// ─── Wraps icon + label with rounded background when active ─────────────────
-
-type TabBarItemWrapperProps = {
-  focused: boolean;
-  children: React.ReactNode;
-};
-
-export function TabBarItemWrapper({ focused, children }: TabBarItemWrapperProps) {
-  const { activeItemBackground, itemPaddingVertical, itemPaddingHorizontal, itemBorderRadius } =
-    TAB_BAR_CONFIG;
-
-  const wrapperStyle: ViewStyle = {
-    paddingVertical: itemPaddingVertical,
-    paddingHorizontal: itemPaddingHorizontal,
-    borderRadius: itemBorderRadius,
-    alignItems: "center",
-    justifyContent: "center",
-    ...(focused && { backgroundColor: activeItemBackground }),
-  };
-
-  return <View style={wrapperStyle}>{children}</View>;
+export function TabBarItemWrapper({ focused, children }: { focused: boolean; children: React.ReactNode }) {
+  return <View style={styles.itemWrapper}>{children}</View>;
 }
-
-
-// ─── Screen options for Tabs (floating, centered, with labels) ─────────────
 
 export function getTabBarScreenOptions(bottomInset: number) {
-  const {
-    height,
-    marginBottom,
-    marginHorizontalPercent,
-    paddingVertical,
-    paddingHorizontal,
-    activeTintColor,
-    inactiveTintColor,
-    labelFontSize,
-  } = TAB_BAR_CONFIG;
-
-  const bottom = bottomInset + marginBottom;
-  const leftRight = `${marginHorizontalPercent}%`;
-
   return {
     headerShown: false,
-    tabBarShowLabel: true,
-    tabBarActiveTintColor: activeTintColor,
-    tabBarInactiveTintColor: inactiveTintColor,
-    tabBarLabelStyle: {
-      fontSize: labelFontSize,
-      fontWeight: "500",
+    tabBarActiveTintColor: TAB_BAR_CONFIG.activeTintColor,
+    tabBarInactiveTintColor: TAB_BAR_CONFIG.inactiveTintColor,
+    tabBarStyle: {
+      position: 'absolute' as const,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: Platform.OS === 'ios' ? 88 : 72,
+      backgroundColor: 'transparent',
+      borderTopWidth: 0,
+      elevation: 0,
+      paddingTop: 12,
+      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     },
-    tabBarStyle: [
-      styles.tabBar,
-      {
-        position: "absolute" as const,
-        left: leftRight,
-        right: leftRight,
-        bottom,
-        height,
-        paddingVertical,
-        paddingHorizontal,
-        borderTopWidth: 0,
-        backgroundColor: "transparent",
-        elevation: 0,
-        shadowOpacity: 0,
-      },
-    ],
-    tabBarItemStyle: styles.tabItem,
     tabBarBackground: () => <TabBarBackground />,
+    tabBarLabelStyle: {
+      fontSize: 10,
+      fontWeight: '600' as const,
+      marginTop: 4,
+    },
   };
 }
 
-
-// ─── Styles ────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    alignItems: "center",
-    width: "100%",
-    flex: 1,
-  },
-
-  tabItem: {
-    flex: 1,
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-
-  iconWrap: {
-    alignItems: "center",
-    justifyContent: "center",
+  itemWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
