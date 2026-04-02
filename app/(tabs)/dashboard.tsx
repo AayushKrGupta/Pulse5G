@@ -1,356 +1,410 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Dimensions,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
   View,
-} from "react-native";
+  Text,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  Dimensions,
+  RefreshControl,
+  TouchableOpacity,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { 
+  Activity, 
+  ShieldCheck, 
+  TrendingUp, 
+  Target, 
+  ChevronRight,
+  Bell
+} from 'lucide-react-native';
+import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
-
-import AlertCard from "../../src/components/AlertCard";
-import { getCameras } from "../../src/services/api";
+import { Colors } from "../../constants/theme";
+import { getCameras, getAnalytics } from "../../src/services/api";
 import { connectAlertsSocket } from "../../src/services/websocket";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
 import { ShadowCard } from "../../components/ui/ShadowCard";
+import AlertCard from "../../src/components/AlertCard";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH * 0.82;
-const CARD_GAP = 14;
-const BOTTOM_PADDING = 120;
+const { width } = Dimensions.get('window');
 
+/**
+ * Pulse 5G - Premium Edge Performance Dashboard
+ * UI inspired by LeafLens with Yellow Accent
+ */
 export default function Dashboard() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [alerts, setAlerts] = useState<any[]>([]);
   const [cameras, setCameras] = useState<any[]>([]);
-  const scrollX = useSharedValue(0);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const theme = Colors.dark;
+
+  const loadData = useCallback(async () => {
+    try {
+      const [camerasData, analyticsData] = await Promise.all([
+        getCameras().catch(() => []),
+        getAnalytics().catch(() => null)
+      ]);
+      setCameras(camerasData);
+      setAnalytics(analyticsData);
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+    }
+  }, []);
 
   useEffect(() => {
+    loadData();
     const ws = connectAlertsSocket((data) => {
       setAlerts((prev) => [data, ...prev]);
     });
     return () => ws.close();
-  }, []);
+  }, [loadData]);
 
-  useEffect(() => {
-    getCameras().then(setCameras).catch(() => setCameras([]));
-  }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const isCameraLive = cameras.some((c) => c?.status === "Online");
+  const activeCameras = cameras.filter((c) => c?.status === "Online").length;
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      scrollX.value = e.contentOffset.x;
-    },
-  });
+  // Chart configuration
+  const chartData = useMemo(() => {
+    const data = analytics?.loadTrend || [20, 45, 28, 80, 99, 43, 50]; 
+    return {
+      labels: Array(data.length).fill('').map((_, i) => `${i + 1}`),
+      datasets: [{
+        data: data,
+        color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`,
+        strokeWidth: 3
+      }]
+    };
+  }, [analytics]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header: three dots + profile */}
-      <Animated.View
-        entering={FadeIn.duration(400)}
-        style={[styles.header, { paddingHorizontal: 20 }]}
-      >
-        <View style={styles.headerSpacer} />
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color="#8e8e93" />
-        </View>
-      </Animated.View>
-
-      {/* Title block: Pulse 5G + Dashboard */}
-      <Animated.View
-        entering={FadeInDown.delay(100).springify()}
-        style={[styles.titleBlock, { paddingHorizontal: 20 }]}
-      >
-        <Text style={styles.brandTitle}>Pulse 5G</Text>
-        <Text style={styles.sectionSubtitle}>Dashboard</Text>
-      </Animated.View>
-
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle="light-content" />
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + BOTTOM_PADDING },
-        ]}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: Platform.OS === 'android' ? insets.top : 10 }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />
+        }
       >
-        {/* Big payment-style cards */}
-        <Animated.ScrollView
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cardsRow}
-          style={styles.cardsScroll}
-        >
-          <PaymentCard
-            index={0}
-            scrollX={scrollX}
-            label="NETWORK"
-            value="5G Edge"
-            sub="Active"
-            bg="#eef2f6"
-            textColor="#3d3d3d"
-          />
-          <PaymentCard
-            index={1}
-            scrollX={scrollX}
-            label="ALERTS"
-            value={String(alerts.length)}
-            sub="Live"
-            bg="#e8e0f0"
-            textColor="#3d3d3d"
-          />
-        </Animated.ScrollView>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>Pulse 5G</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Dashboard</Text>
+          </View>
+          <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Image 
+              source={require('../../assets/images/5g.avif')} 
+              style={styles.headerLogo} 
+              contentFit="cover"
+            />
+          </TouchableOpacity>
+        </View>
 
-        {/* 5G Camera Status card */}
-        <ShadowCard delay={100} index={0} style={styles.cameraCard}>
-          <View style={styles.cameraCardInner}>
-            <View style={styles.cameraCardHeader}>
-              <Text style={styles.cameraCardTitle}>5G Camera Status</Text>
-              <View style={[styles.liveIndicator, isCameraLive ? styles.liveOn : styles.liveOff]}>
-                <View style={[styles.liveDot, isCameraLive ? styles.liveDotOn : styles.liveDotOff]} />
-                <Text style={[styles.liveLabel, isCameraLive ? styles.liveLabelOn : styles.liveLabelOff]}>
-                  {isCameraLive ? "Live" : "Offline"}
-                </Text>
+        {/* Primary Stats Grid */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCardFull, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={styles.statIconBadge}>
+              <ShieldCheck size={20} color={theme.success} />
+            </View>
+            <View>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Edge Node Health</Text>
+              <View style={styles.statValueRow}>
+                <Text style={[styles.statValueLarge, { color: theme.text }]}>99.8%</Text>
+                <View style={styles.trendBadge}>
+                  <TrendingUp size={12} color={theme.success} />
+                  <Text style={[styles.trendText, { color: theme.success }]}>OPTIMAL</Text>
+                </View>
               </View>
             </View>
-            <Text style={styles.cameraCardMeta}>
-              {cameras.length > 0
-                ? `${cameras.filter((c) => c?.status === "Online").length} of ${cameras.length} cameras active`
-                : "No cameras connected"}
-            </Text>
           </View>
-        </ShadowCard>
+        </View>
 
-        {/* Transaction-style list: Latest Alerts */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statCardSmall, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.miniIcon, { backgroundColor: 'rgba(234, 179, 8, 0.1)' }]}>
+              <Target size={16} color={theme.accent} />
+            </View>
+            <Text style={[styles.statValueSmall, { color: theme.text }]}>{activeCameras}/{cameras.length}</Text>
+            <Text style={[styles.statLabelSmall, { color: theme.textSecondary }]}>Active Cameras</Text>
+          </View>
+          <View style={[styles.statCardSmall, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.miniIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+              <Activity size={16} color={theme.success} />
+            </View>
+            <Text style={[styles.statValueSmall, { color: theme.text }]}>{isCameraLive ? 'Live' : 'Off'}</Text>
+            <Text style={[styles.statLabelSmall, { color: theme.textSecondary }]}>System Status</Text>
+          </View>
+        </View>
+
+        {/* Performance Chart */}
+        <View style={[styles.chartContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={styles.chartHeader}>
+            <Text style={[styles.chartTitle, { color: theme.text }]}>Network Load Trend</Text>
+            <View style={styles.chartPeriod}>
+              <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '700' }}>LIVE MONITORING</Text>
+            </View>
+          </View>
+          
+          <LineChart
+            data={chartData}
+            width={width - 40}
+            height={180}
+            chartConfig={{
+              backgroundColor: theme.card,
+              backgroundGradientFrom: theme.card,
+              backgroundGradientTo: theme.card,
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+              style: {
+                borderRadius: 16
+              },
+              propsForDots: {
+                r: "4",
+                strokeWidth: "2",
+                stroke: theme.accent
+              }
+            }}
+            bezier
+            style={styles.chartStyle}
+            withInnerLines={false}
+            withOuterLines={false}
+            withVerticalLabels={false}
+          />
+        </View>
+
+        {/* Alerts History Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Alerts</Text>
+          <TouchableOpacity onPress={() => router.push('/incidents')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 13, marginRight: 2 }}>View All</Text>
+              <ChevronRight size={14} color={theme.accent} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {alerts.length === 0 ? (
-          <>
-            <AnimatedListItem index={0}>
-              <AlertCard
-                incident={{
-                  event: "No incidents detected",
-                  confidence: 0,
-                  timestamp: "Waiting for live data",
-                  severity: "warning",
-                }}
-              />
-            </AnimatedListItem>
-            <AnimatedListItem index={1}>
-              <AlertCard
-                incident={{
-                  event: "System Monitoring Active",
-                  confidence: 1,
-                  timestamp: "5G Edge Connected",
-                  severity: "info",
-                }}
-              />
-            </AnimatedListItem>
-          </>
+          <View style={[styles.noAlertsCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Bell size={24} color={theme.textSecondary} style={{ marginBottom: 8 }} />
+            <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>No active alerts detected</Text>
+          </View>
         ) : (
-          alerts.map((item, idx) => (
+          alerts.slice(0, 5).map((item, idx) => (
             <AnimatedListItem key={idx} index={idx}>
-              <AlertCard incident={item} />
+              <ShadowCard delay={0} index={idx} style={Object.assign({}, styles.alertCardContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder })}>
+                <AlertCard incident={item} />
+              </ShadowCard>
             </AnimatedListItem>
           ))
         )}
+        
+        {/* Extra space for floating bottom bar */}
+        <View style={{ height: 110 }} />
       </ScrollView>
-    </View>
-  );
-}
-
-function PaymentCard({
-  index,
-  scrollX,
-  label,
-  value,
-  sub,
-  bg,
-  textColor,
-}: {
-  index: number;
-  scrollX: Animated.SharedValue<number>;
-  label: string;
-  value: string;
-  sub: string;
-  bg: string;
-  textColor: string;
-}) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const inputRange = [
-      (index - 1) * (CARD_WIDTH + CARD_GAP),
-      index * (CARD_WIDTH + CARD_GAP),
-      (index + 1) * (CARD_WIDTH + CARD_GAP),
-    ];
-    const scale = interpolate(scrollX.value, inputRange, [0.92, 1, 0.92]);
-    const opacity = interpolate(scrollX.value, inputRange, [0.88, 1, 0.88]);
-    return { transform: [{ scale }], opacity };
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.paymentCard,
-        { width: CARD_WIDTH, backgroundColor: bg },
-        animatedStyle,
-      ]}
-    >
-      <View style={styles.paymentCardTop}>
-        <View style={[styles.cardToggle, { backgroundColor: textColor }]} />
-      </View>
-      <Text style={[styles.paymentLabel, { color: `${textColor}99` }]}>
-        {label}
-      </Text>
-      <Text style={[styles.paymentValue, { color: textColor }]}>{value}</Text>
-      <Text style={[styles.paymentSub, { color: `${textColor}cc` }]}>{sub}</Text>
-    </Animated.View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+  },
+  scrollContent: {
+    padding: 20,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    height: 52,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 30,
   },
-  headerSpacer: { width: 40, height: 40 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#1c1c1e",
-    alignItems: "center",
-    justifyContent: "center",
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
-  titleBlock: {
-    paddingTop: 4,
-    paddingBottom: 20,
-  },
-  brandTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#ffffff",
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: '800',
     letterSpacing: -0.5,
   },
-  sectionSubtitle: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#8e8e93",
-    marginTop: 4,
-    letterSpacing: 0.3,
+  profileButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 0 },
-  cardsScroll: { marginHorizontal: -20 },
-  cardsRow: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: CARD_GAP,
+  headerLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
-  cameraCard: { marginBottom: 24 },
-  cameraCardInner: { padding: 20 },
-  cameraCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  cameraCardTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#e5e5e5",
-  },
-  liveIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
-  },
-  liveOn: { backgroundColor: "rgba(34,197,94,0.18)" },
-  liveOff: { backgroundColor: "rgba(255,255,255,0.08)" },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  liveDotOn: {
-    backgroundColor: "#22c55e",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#22c55e",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 6,
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  liveDotOff: { backgroundColor: "#6b7280" },
-  liveLabel: { fontSize: 13, fontWeight: "600" },
-  liveLabelOn: { color: "#22c55e" },
-  liveLabelOff: { color: "#8e8e93" },
-  cameraCardMeta: {
-    fontSize: 13,
-    color: "#8e8e93",
-  },
-  paymentCard: {
+  statCardFull: {
+    flex: 1,
+    padding: 20,
     borderRadius: 24,
-    padding: 24,
-    minHeight: 180,
-    justifyContent: "space-between",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.35,
-        shadowRadius: 24,
-      },
-      android: { elevation: 14 },
-    }),
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  paymentCardTop: {
-    flexDirection: "row",
-    alignItems: "center",
+  statIconBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 18,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  cardToggle: {
-    width: 36,
-    height: 22,
-    borderRadius: 11,
-    opacity: 0.3,
+  statCardSmall: {
+    width: (width - 55) / 2,
+    padding: 16,
+    borderRadius: 24,
+    borderWidth: 1.5,
   },
-  paymentLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 1.2,
-    marginTop: 8,
+  miniIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  paymentValue: {
-    fontSize: 26,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-    marginTop: 4,
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  paymentSub: {
-    fontSize: 15,
-    fontWeight: "500",
-    marginTop: 4,
+  statValueLarge: {
+    fontSize: 28,
+    fontWeight: '800',
+    marginRight: 10,
+  },
+  statValueSmall: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  statLabelSmall: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  trendText: {
+    fontSize: 9,
+    fontWeight: '800',
+    marginLeft: 2,
+  },
+  chartContainer: {
+    padding: 20,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  chartPeriod: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+  },
+  chartStyle: {
+    marginVertical: 8,
+    borderRadius: 16,
+    marginLeft: -20, 
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  alertCardContainer: {
+    marginBottom: 12,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  noAlertsCard: {
+    padding: 30,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderStyle: 'dashed',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+    paddingHorizontal: 40,
+  },
+  iconGlow: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
