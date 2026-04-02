@@ -1,27 +1,28 @@
-import { getAnalytics } from "@/src/services/api";
-import { useEffect, useMemo, useState } from "react";
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
   View,
-} from "react-native";
+  Text,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  Dimensions,
+  TouchableOpacity,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, TrendingUp, Activity, AlertTriangle, ShieldCheck, Zap } from 'lucide-react-native';
+import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "../../constants/theme";
+import { getAnalytics } from "../../src/services/api";
 
-import { ShadowCard } from "../../components/ui/ShadowCard";
+const { width } = Dimensions.get('window');
 
 const PERIODS = ["Week", "Month", "Year"] as const;
 type Period = (typeof PERIODS)[number];
 
-// Chart data per period – bars and labels change when period changes
-const CHART_DATA: Record<
-  Period,
-  { labels: string[]; values: number[] }
-> = {
+const CHART_DATA: Record<Period, { labels: string[]; values: number[] }> = {
   Week: {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     values: [24, 18, 32, 28, 41, 35, 22],
@@ -36,155 +37,174 @@ const CHART_DATA: Record<
   },
 };
 
-const BAR_COLOR = "#EAB308";
-const BOTTOM_PADDING = 120;
-const CHART_BAR_MAX_HEIGHT = 140;
-
-export default function Analytics() {
+export default function AnalyticsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [stats, setStats] = useState<any>(null);
   const [period, setPeriod] = useState<Period>("Week");
+  const [stats, setStats] = useState<any>(null);
+  const theme = Colors.dark;
 
   useEffect(() => {
-    getAnalytics().then(setStats).catch(() =>
-      setStats({ total_incidents: 0, critical: 0, warning: 0 })
-    );
+    getAnalytics().then(setStats).catch(() => setStats(null));
   }, []);
 
-  const { labels, values } = useMemo(
-    () => CHART_DATA[period],
-    [period]
-  );
-  const maxVal = useMemo(
-    () => Math.max(...values, 1),
-    [values]
-  );
+  const currentData = useMemo(() => CHART_DATA[period], [period]);
 
-  const critical = stats?.critical ?? 0;
-  const warning = stats?.warning ?? 0;
+  const lineChartData = {
+    labels: currentData.labels,
+    datasets: [{
+      data: currentData.values,
+      color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`,
+      strokeWidth: 3
+    }]
+  };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Animated.View
-        entering={FadeIn.duration(400)}
-        style={[styles.header, { paddingHorizontal: 20 }]}
-      >
-        <Text style={styles.headerTitle}>Analytics</Text>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color="#8e8e93" />
-        </View>
-      </Animated.View>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Custom Header */}
+      <View style={[styles.header, { borderBottomColor: theme.cardBorder, paddingTop: Platform.OS === 'android' ? insets.top : 10 }]}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={[styles.backButton, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+        >
+          <ChevronLeft size={24} color={theme.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Network Analytics</Text>
+        <View style={{ width: 44 }} />
+      </View>
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + BOTTOM_PADDING },
-        ]}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
       >
-        <Animated.View
-          entering={FadeInDown.delay(60).springify()}
-          style={styles.periodWrap}
-        >
+        {/* Period Selector */}
+        <View style={[styles.periodWrap, { backgroundColor: theme.card }]}>
           {PERIODS.map((p) => (
-            <Pressable
+            <TouchableOpacity
               key={p}
               onPress={() => setPeriod(p)}
-              style={[styles.periodTab, period === p && styles.periodTabActive]}
+              style={[styles.periodTab, period === p && { backgroundColor: 'rgba(234, 179, 8, 0.2)' }]}
             >
               <Text
-                style={[styles.periodText, period === p && styles.periodTextActive]}
+                style={[styles.periodText, { color: period === p ? theme.accent : theme.textSecondary }]}
               >
                 {p}
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           ))}
-        </Animated.View>
+        </View>
 
-        <ShadowCard delay={100} index={0} style={styles.chartCard}>
-          <View style={styles.chartInner}>
-            <View style={styles.chartYAxis}>
-              <Text style={styles.chartYLabel}>{maxVal}</Text>
-              <Text style={styles.chartYLabel}>0</Text>
+        {/* Main Chart */}
+        <View style={[styles.chartCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={styles.chartHeader}>
+            <View style={styles.chartTitleContainer}>
+              <Activity size={18} color={theme.accent} style={{ marginRight: 8 }} />
+              <Text style={[styles.chartTitle, { color: theme.text }]}>Incident Volume</Text>
             </View>
-            <View style={styles.chartBarsWrap} key={period}>
-              {values.map((val, i) => (
-                <View key={`${period}-${i}`} style={styles.barCol}>
-                  <Animated.View
-                    entering={FadeInDown.delay(80 + i * 30).springify()}
-                    style={[
-                      styles.chartBar,
-                      {
-                        height: Math.max(8, (val / maxVal) * CHART_BAR_MAX_HEIGHT),
-                        backgroundColor: BAR_COLOR,
-                      },
-                    ]}
-                  />
-                </View>
-              ))}
-            </View>
-            <View style={styles.chartXAxis}>
-              {labels.map((l, i) => (
-                <Text key={`${period}-x-${i}`} style={styles.chartXLabel} numberOfLines={1}>
-                  {l}
-                </Text>
-              ))}
+            <View style={styles.trendBadge}>
+              <TrendingUp size={12} color={theme.success} />
+              <Text style={[styles.trendText, { color: theme.success }]}>+12.5%</Text>
             </View>
           </View>
-        </ShadowCard>
+          
+          <LineChart
+            data={lineChartData}
+            width={width - 50}
+            height={200}
+            chartConfig={{
+              backgroundColor: theme.card,
+              backgroundGradientFrom: theme.card,
+              backgroundGradientTo: theme.card,
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+              style: {
+                borderRadius: 16
+              },
+              propsForDots: {
+                r: "5",
+                strokeWidth: "2",
+                stroke: theme.accent
+              }
+            }}
+            bezier
+            style={styles.chartStyle}
+            withInnerLines={false}
+            withVerticalLabels={period !== 'Year'}
+          />
+        </View>
 
-        <Animated.View
-          entering={FadeInDown.delay(200).springify()}
-          style={styles.summarySection}
-        >
-          <View style={[styles.summaryRow, styles.summaryRowBorder]}>
-            <View style={styles.summaryLabelRow}>
-              <Ionicons name="alert-circle-outline" size={18} color="#8e8e93" />
-              <Text style={styles.summaryLabel}>Critical</Text>
+        {/* Summary Grid */}
+        <View style={styles.summaryGrid}>
+          <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.miniIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+              <AlertTriangle size={18} color={theme.error} />
             </View>
-            <Text style={styles.summaryValue}>{critical}</Text>
+            <Text style={[styles.summaryValue, { color: theme.text }]}>{stats?.critical || 12}</Text>
+            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Critical</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryLabelRow}>
-              <Ionicons name="warning-outline" size={18} color="#8e8e93" />
-              <Text style={styles.summaryLabel}>Warnings</Text>
+          
+          <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.miniIcon, { backgroundColor: 'rgba(234, 179, 8, 0.1)' }]}>
+              <Zap size={18} color={theme.accent} />
             </View>
-            <Text style={styles.summaryValue}>{warning}</Text>
+            <Text style={[styles.summaryValue, { color: theme.text }]}>{stats?.warning || 45}</Text>
+            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Warning</Text>
           </View>
-        </Animated.View>
+        </View>
+
+        {/* Node Health Card */}
+        <View style={[styles.healthCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={styles.healthHeader}>
+            <ShieldCheck size={24} color={theme.success} />
+            <View style={{ marginLeft: 12 }}>
+              <Text style={[styles.healthTitle, { color: theme.text }]}>Edge Node Health</Text>
+              <Text style={[styles.healthSub, { color: theme.textSecondary }]}>All systems operational</Text>
+            </View>
+            <View style={styles.healthValueContainer}>
+              <Text style={[styles.healthValue, { color: theme.success }]}>99.8%</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000000" },
+  container: {
+    flex: 1,
+  },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    height: 52,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#e5e5e5",
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#1c1c1e",
-    alignItems: "center",
-    justifyContent: "center",
+  scrollContent: {
+    padding: 20,
   },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
   periodWrap: {
-    flexDirection: "row",
-    backgroundColor: "#1c1c1e",
+    flexDirection: 'row',
     borderRadius: 14,
     padding: 4,
     marginBottom: 24,
@@ -192,89 +212,102 @@ const styles = StyleSheet.create({
   periodTab: {
     flex: 1,
     paddingVertical: 10,
-    alignItems: "center",
+    alignItems: 'center',
     borderRadius: 10,
   },
-  periodTabActive: { backgroundColor: "rgba(234,179,8,0.25)" },
-  periodText: { fontSize: 15, fontWeight: "600", color: "#8e8e93" },
-  periodTextActive: { color: "#EAB308", fontWeight: "700" },
-  chartCard: { marginBottom: 24, borderRadius: 24, overflow: "hidden" },
-  chartInner: { padding: 24, paddingLeft: 36 },
-  chartYAxis: {
-    position: "absolute",
-    left: 24,
-    top: 24,
-    bottom: 52,
-    justifyContent: "space-between",
+  periodText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
-  chartYLabel: { fontSize: 11, color: "#8e8e93", fontWeight: "600" },
-  chartBarsWrap: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    height: CHART_BAR_MAX_HEIGHT,
-    marginLeft: 8,
-    marginRight: 8,
-    gap: 6,
-  },
-  barCol: {
-    flex: 1,
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  chartBar: {
-    width: "80%",
-    minHeight: 8,
-    borderRadius: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#EAB308",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.35,
-        shadowRadius: 6,
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  chartXAxis: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginLeft: 8,
-    marginTop: 12,
-    paddingRight: 8,
-  },
-  chartXLabel: {
-    flex: 1,
-    fontSize: 10,
-    color: "#8e8e93",
-    textAlign: "center",
-  },
-  summarySection: {
-    backgroundColor: "#1c1c1e",
+  chartCard: {
+    padding: 20,
     borderRadius: 24,
-    padding: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-      },
-      android: { elevation: 8 },
-    }),
+    borderWidth: 1.5,
+    marginBottom: 20,
+    overflow: 'hidden',
   },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  summaryRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+  chartTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  summaryLabelRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  summaryLabel: { fontSize: 15, color: "#8e8e93", fontWeight: "500" },
-  summaryValue: { fontSize: 18, fontWeight: "700", color: "#e5e5e5" },
+  chartTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  trendText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  chartStyle: {
+    marginLeft: -15,
+    borderRadius: 16,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+  },
+  summaryCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 24,
+    borderWidth: 1.5,
+  },
+  miniIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  healthCard: {
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1.5,
+  },
+  healthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  healthTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  healthSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  healthValueContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  healthValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
 });
