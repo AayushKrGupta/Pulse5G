@@ -1,35 +1,50 @@
 import React from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
+import { AlertCircle, AlertTriangle, Info, ShieldCheck } from "lucide-react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
+import { Colors } from "../../constants/theme";
 import { Incident } from "../types";
 
-const severityIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
-  critical: "alert-circle",
-  warning: "warning",
-  info: "information-circle",
+const severityIcons: Record<string, any> = {
+  critical: AlertCircle,
+  warning: AlertTriangle,
+  info: Info,
+};
+
+const severityColors = {
+  critical: "#EF4444",
+  warning: "#EAB308",
+  info: "#3B82F6",
 };
 
 export default function AlertCard({ incident }: { incident: Incident }) {
-  const iconName = severityIcons[incident.severity] ?? "ellipse";
+  const IconComponent = severityIcons[incident.severity] || ShieldCheck;
+  const color = severityColors[incident.severity as keyof typeof severityColors] || "#9CA3AF";
+  const theme = Colors.dark;
 
   return (
     <Animated.View
       entering={FadeInRight.springify()}
       style={styles.card}
     >
-      <View style={styles.iconCircle}>
-        <Ionicons name={iconName} size={22} color="#8e8e93" />
+      <View style={[styles.iconCircle, { backgroundColor: `${color}15` }]}>
+        <IconComponent size={24} color={color} />
       </View>
       <View style={styles.content}>
-        <Text style={styles.event} numberOfLines={1}>
-          {incident.event}
+        <View style={styles.headerRow}>
+          <Text style={[styles.event, { color: theme.text }]} numberOfLines={1}>
+            {incident.event}
+          </Text>
+          <View style={[styles.severityBadge, { backgroundColor: `${color}15` }]}>
+            <Text style={[styles.severityText, { color }]}>
+              {incident.severity.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        <Text style={[styles.meta, { color: theme.textSecondary }]}>
+          {new Date(incident.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Edge Node Active
         </Text>
-        <Text style={styles.meta}>{incident.timestamp}</Text>
       </View>
-      <Text style={styles.amount}>
-        {incident.severity === "critical" ? "!" : "—"}
-      </Text>
     </Animated.View>
   );
 }
@@ -38,43 +53,41 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1c1c1e",
     padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: { elevation: 6 },
-    }),
+    flex: 1,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 14,
+    marginRight: 16,
   },
   content: { flex: 1 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   event: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#e5e5e5",
+    fontWeight: "700",
+    flex: 1,
+  },
+  severityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  severityText: {
+    fontSize: 9,
+    fontWeight: "800",
   },
   meta: {
     fontSize: 13,
-    color: "#8e8e93",
-    marginTop: 2,
-  },
-  amount: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#8e8e93",
+    fontWeight: "500",
   },
 });
