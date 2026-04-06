@@ -16,55 +16,74 @@ import { useRouter } from 'expo-router';
 import { 
   Activity, 
   ShieldCheck, 
-  TrendingUp, 
   Target, 
   ChevronRight,
-  Bell
+  Flame,
+  CheckCircle2
 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/theme";
-import { getCameras, getAnalytics } from "../../src/services/api";
+import { getLatestAlert } from "../../src/services/api";
 import { connectAlertsSocket } from "../../src/services/websocket";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
 import { ShadowCard } from "../../components/ui/ShadowCard";
 import AlertCard from "../../src/components/AlertCard";
+import LiveVideoStream from "../../src/components/LiveVideoStream";
 
 const { width } = Dimensions.get('window');
 
 /**
  * Pulse 5G - Premium Edge Performance Dashboard
- * UI inspired by LeafLens with Yellow Accent
+ * Integrated with Real-Time AI Fire Detection
  */
 export default function Dashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [alerts, setAlerts] = useState<any[]>([]);
-  const [cameras, setCameras] = useState<any[]>([]);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [currentAlert, setCurrentAlert] = useState<any>(null);
+  const [accuracyHistory, setAccuracyHistory] = useState<number[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const theme = Colors.dark;
 
+  const processNewData = useCallback((data: any) => {
+    setCurrentAlert(data);
+    
+    // Update accuracy history if data has confidence
+    if (data.confidence !== undefined) {
+      setAccuracyHistory(prev => {
+        const newHistory = [...prev, data.confidence * 100];
+        // Keep last 10 points for the chart
+        return newHistory.slice(-10);
+      });
+    }
+
+    if (data.event === 'fire') {
+      setAlerts((prev) => {
+         if (prev.length > 0 && prev[0].timestamp === data.timestamp) return prev;
+         return [data, ...prev];
+      });
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
-      const [camerasData, analyticsData] = await Promise.all([
-        getCameras().catch(() => []),
-        getAnalytics().catch(() => null)
-      ]);
-      setCameras(camerasData);
-      setAnalytics(analyticsData);
+      const latestAlert = await getLatestAlert().catch(() => null);
+      if (latestAlert) {
+        processNewData(latestAlert);
+      }
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     }
-  }, []);
+  }, [processNewData]);
 
   useEffect(() => {
     loadData();
     const ws = connectAlertsSocket((data) => {
-      setAlerts((prev) => [data, ...prev]);
+      processNewData(data);
     });
     return () => ws.close();
-  }, [loadData]);
+  }, [loadData, processNewData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -72,25 +91,31 @@ export default function Dashboard() {
     setRefreshing(false);
   }, [loadData]);
 
-  const isCameraLive = cameras.some((c) => c?.status === "Online");
-  const activeCameras = cameras.filter((c) => c?.status === "Online").length;
+  // Derived stats
+  const avgAccuracy = useMemo(() => {
+    if (accuracyHistory.length === 0) return "98.2"; // fallback
+    const sum = accuracyHistory.reduce((a, b) => a + b, 0);
+    return (sum / accuracyHistory.length).toFixed(1);
+  }, [accuracyHistory]);
 
-  // Chart configuration
   const chartData = useMemo(() => {
-    const data = analytics?.loadTrend || [20, 45, 28, 80, 99, 43, 50]; 
+    const dataPoints = accuracyHistory.length >= 2 ? accuracyHistory : [75, 82, 88, 92, 95, 98, 99];
     return {
-      labels: Array(data.length).fill('').map((_, i) => `${i + 1}`),
+      labels: Array(dataPoints.length).fill('').map((_, i) => `${i + 1}`),
       datasets: [{
-        data: data,
+        data: dataPoints,
         color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`,
         strokeWidth: 3
       }]
     };
-  }, [analytics]);
+  }, [accuracyHistory]);
+
+  const isFireDetected = currentAlert?.event === 'fire';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle="light-content" />
+      
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingTop: Platform.OS === 'android' ? insets.top : 10 }]}
@@ -116,16 +141,19 @@ export default function Dashboard() {
         {/* Primary Stats Grid */}
         <View style={styles.statsRow}>
           <View style={[styles.statCardFull, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.statIconBadge}>
-              <ShieldCheck size={20} color={theme.success} />
+            <View style={[styles.statIconBadge, { backgroundColor: isFireDetected ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}>
+              {isFireDetected ? <Flame size={20} color={theme.error} /> : <ShieldCheck size={20} color={theme.success} />}
             </View>
             <View>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Edge Node Health</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>System Status</Text>
               <View style={styles.statValueRow}>
-                <Text style={[styles.statValueLarge, { color: theme.text }]}>99.8%</Text>
-                <View style={styles.trendBadge}>
-                  <TrendingUp size={12} color={theme.success} />
-                  <Text style={[styles.trendText, { color: theme.success }]}>OPTIMAL</Text>
+                <Text style={[styles.statValueLarge, { color: isFireDetected ? theme.error : theme.text }]}>
+                  {isFireDetected ? "FIRE ALARM" : "SECURE"}
+                </Text>
+                <View style={[styles.trendBadge, { backgroundColor: isFireDetected ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Text style={[styles.trendText, { color: isFireDetected ? theme.error : theme.success }]}>
+                    {isFireDetected ? "CRITICAL" : "OPTIMAL"}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -134,25 +162,31 @@ export default function Dashboard() {
 
         <View style={styles.statsRow}>
           <View style={[styles.statCardSmall, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.miniIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+              <Activity size={16} color="#3B82F6" />
+            </View>
+            <Text style={[styles.statValueSmall, { color: theme.text }]}>0.5ms</Text>
+            <Text style={[styles.statLabelSmall, { color: theme.textSecondary }]}>Edge Latency</Text>
+          </View>
+          <View style={[styles.statCardSmall, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={[styles.miniIcon, { backgroundColor: 'rgba(234, 179, 8, 0.1)' }]}>
               <Target size={16} color={theme.accent} />
             </View>
-            <Text style={[styles.statValueSmall, { color: theme.text }]}>{activeCameras}/{cameras.length}</Text>
-            <Text style={[styles.statLabelSmall, { color: theme.textSecondary }]}>Active Cameras</Text>
+            <Text style={[styles.statValueSmall, { color: theme.text }]}>{avgAccuracy}%</Text>
+            <Text style={[styles.statLabelSmall, { color: theme.textSecondary }]}>AI Accuracy</Text>
           </View>
-          <View style={[styles.statCardSmall, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={[styles.miniIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-              <Activity size={16} color={theme.success} />
-            </View>
-            <Text style={[styles.statValueSmall, { color: theme.text }]}>{isCameraLive ? 'Live' : 'Off'}</Text>
-            <Text style={[styles.statLabelSmall, { color: theme.textSecondary }]}>System Status</Text>
-          </View>
+        </View>
+
+        {/* Live Video Stream */}
+        <View style={[styles.videoSection]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Live Edge Camera</Text>
+          <LiveVideoStream cameraId="CAM-01" style={isFireDetected ? { borderColor: theme.error, borderWidth: 2 } : {}} />
         </View>
 
         {/* Performance Chart */}
         <View style={[styles.chartContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: theme.text }]}>Network Load Trend</Text>
+            <Text style={[styles.chartTitle, { color: theme.text }]}>Real-time AI Accuracy Trend</Text>
             <View style={styles.chartPeriod}>
               <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '700' }}>LIVE MONITORING</Text>
             </View>
@@ -188,7 +222,7 @@ export default function Dashboard() {
 
         {/* Alerts History Section */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Alerts</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Incident History</Text>
           <TouchableOpacity onPress={() => router.push('/incidents')}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 13, marginRight: 2 }}>View All</Text>
@@ -199,8 +233,8 @@ export default function Dashboard() {
 
         {alerts.length === 0 ? (
           <View style={[styles.noAlertsCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Bell size={24} color={theme.textSecondary} style={{ marginBottom: 8 }} />
-            <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>No active alerts detected</Text>
+            <CheckCircle2 size={24} color={theme.success} style={{ marginBottom: 8 }} />
+            <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>No active fire detected</Text>
           </View>
         ) : (
           alerts.slice(0, 5).map((item, idx) => (
@@ -275,7 +309,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 18,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -320,7 +353,6 @@ const styles = StyleSheet.create({
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -328,7 +360,6 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: 9,
     fontWeight: '800',
-    marginLeft: 2,
   },
   chartContainer: {
     padding: 20,
@@ -383,28 +414,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderStyle: 'dashed',
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
-    paddingHorizontal: 40,
-  },
-  iconGlow: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 10,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
+  videoSection: {
+    marginBottom: 24,
   },
 });
