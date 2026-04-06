@@ -1,16 +1,10 @@
-const BASE_URL = "http://EDGE_SERVER_IP:8000/api";
+const BASE_URL = "http://172.16.0.17:8000";
 
-export const getIncidents = async () => {
-  const res = await fetch(`${BASE_URL}/incidents`);
+export const getLatestAlert = async () => {
+  const res = await fetch(`${BASE_URL}/`);
   return res.json();
 };
 
-export const getAnalytics = async () => {
-  const res = await fetch(`${BASE_URL}/analytics`);
-  return res.json();
-};
-
-export const getCameras = async () => {
-  const res = await fetch(`${BASE_URL}/cameras`);
-  return res.json();
+export const getVideoStreamUrl = () => {
+  return `${BASE_URL}/video`;
 };
