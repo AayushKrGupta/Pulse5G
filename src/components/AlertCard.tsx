@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { AlertCircle, AlertTriangle, Info, ShieldCheck } from "lucide-react-native";
+import { AlertCircle, AlertTriangle, Info, ShieldCheck, Flame } from "lucide-react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import { Colors } from "../../constants/theme";
 import { Incident } from "../types";
@@ -9,17 +9,21 @@ const severityIcons: Record<string, any> = {
   critical: AlertCircle,
   warning: AlertTriangle,
   info: Info,
+  fire: Flame, // 🔥 Fire detection icon
 };
 
 const severityColors = {
   critical: "#EF4444",
   warning: "#EAB308",
   info: "#3B82F6",
+  fire: "#DC2626", // 🔥 Fire detection color
 };
 
 export default function AlertCard({ incident }: { incident: Incident }) {
-  const IconComponent = severityIcons[incident.severity] || ShieldCheck;
-  const color = severityColors[incident.severity as keyof typeof severityColors] || "#9CA3AF";
+  // 🔥 Handle fire detection events
+  const isFireEvent = incident.event === "fire" || incident.severity === "fire";
+  const IconComponent = isFireEvent ? Flame : (severityIcons[incident.severity] || ShieldCheck);
+  const color = isFireEvent ? severityColors.fire : (severityColors[incident.severity as keyof typeof severityColors] || "#9CA3AF");
   const theme = Colors.dark;
 
   return (
@@ -33,16 +37,20 @@ export default function AlertCard({ incident }: { incident: Incident }) {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <Text style={[styles.event, { color: theme.text }]} numberOfLines={1}>
-            {incident.event}
+            {isFireEvent ? "🔥 Fire Detected" : incident.event}
           </Text>
           <View style={[styles.severityBadge, { backgroundColor: `${color}15` }]}>
             <Text style={[styles.severityText, { color }]}>
-              {incident.severity.toUpperCase()}
+              {isFireEvent ? "FIRE" : (incident.severity?.toUpperCase() || "INFO")}
             </Text>
           </View>
         </View>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>
-          {new Date(incident.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Edge Node Active
+          {new Date(typeof incident.timestamp === 'number' && incident.timestamp < 1e12 ? incident.timestamp * 1000 : incident.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {isFireEvent && incident.confidence && (
+            <Text> • Confidence: {(incident.confidence * 100).toFixed(1)}%</Text>
+          )}
+          {" • Edge Node Active"}
         </Text>
       </View>
     </Animated.View>
