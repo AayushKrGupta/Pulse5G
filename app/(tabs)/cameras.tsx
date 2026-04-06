@@ -13,9 +13,10 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, ShieldCheck, Activity, Wifi, WifiOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/theme";
-import { getCameras } from "../../src/services/api";
+import { getCameras, getVideoStreamUrl } from "../../src/services/api";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
 import { ShadowCard } from "../../components/ui/ShadowCard";
+import LiveVideoStream from "../../src/components/LiveVideoStream";
 
 // const { width } = Dimensions.get('window');
 
@@ -65,6 +66,12 @@ export default function CamerasScreen() {
             <ShieldCheck size={16} color={theme.success} />
             <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>Secure Stream</Text>
           </View>
+        </View>
+
+        {/* Live Video Stream */}
+        <View style={styles.videoSection}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Primary Camera Feed</Text>
+          <LiveVideoStream cameraId="CAM-01" />
         </View>
 
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Active Monitoring Nodes</Text>
@@ -207,5 +214,8 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 12,
     fontWeight: '800',
+  },
+  videoSection: {
+    marginBottom: 24,
   },
 });
