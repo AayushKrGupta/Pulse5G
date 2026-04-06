@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,60 +9,83 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Calendar, ShieldCheck, Activity, AlertCircle, CheckCircle2 } from 'lucide-react-native';
+import { ChevronLeft, Calendar, ShieldCheck, Activity, Flame, CheckCircle2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/theme";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
-
-const INITIAL_INCIDENTS = [
-  { id: '1', event: "Fire Detected", status: "Resolved", timestamp: new Date().toISOString(), severity: "critical", confidence: 0.98 },
-  { id: '2', event: "Person Fallen", status: "Pending", timestamp: new Date(Date.now() - 3600000).toISOString(), severity: "high", confidence: 0.92 },
-  { id: '3', event: "Unauthorized Entry", status: "Resolved", timestamp: new Date(Date.now() - 86400000).toISOString(), severity: "medium", confidence: 0.85 },
-];
+import { getLatestAlert } from "../../src/services/api";
+import { Incident } from "../../src/types";
 
 export default function IncidentsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const incidents = INITIAL_INCIDENTS;
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const theme = Colors.dark;
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    // Simulate refresh
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setRefreshing(false);
+  const loadIncidents = useCallback(async () => {
+    try {
+      const data = await getLatestAlert().catch(() => null);
+      if (data && data.event === 'fire') {
+        setIncidents(prev => {
+          // Prevent duplicates based on timestamp
+          const exists = prev.some(item => item.timestamp === data.timestamp);
+          if (exists) return prev;
+          return [data, ...prev];
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch incidents:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const renderItem = (item: any, index: number) => (
-    <AnimatedListItem key={item.id} index={index}>
+  useEffect(() => {
+    loadIncidents();
+    // Poll for changes every 10 seconds for the history screen
+    const interval = setInterval(loadIncidents, 10000);
+    return () => clearInterval(interval);
+  }, [loadIncidents]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadIncidents();
+    setRefreshing(false);
+  }, [loadIncidents]);
+
+  const renderItem = (item: Incident, index: number) => (
+    <AnimatedListItem key={`${item.timestamp}-${index}`} index={index}>
       <TouchableOpacity 
         activeOpacity={0.7}
         style={[styles.historyItem, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
       >
-        <View style={[styles.iconContainer, { backgroundColor: item.status === 'Resolved' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(234, 179, 8, 0.1)' }]}>
-          {item.status === 'Resolved' ? (
-            <CheckCircle2 size={32} color={theme.success} />
-          ) : (
-            <AlertCircle size={32} color={theme.accent} />
-          )}
+        <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+          <Flame size={32} color={theme.error} fill={theme.error} />
         </View>
         <View style={styles.itemInfo}>
-          <Text style={[styles.itemEvent, { color: theme.text }]} numberOfLines={1}>{item.event}</Text>
+          <Text style={[styles.itemEvent, { color: theme.text }]} numberOfLines={1}>
+            🔥 Fire Detected
+          </Text>
           <View style={styles.conditionRow}>
-            <View style={[styles.statusDot, { backgroundColor: item.status === 'Resolved' ? theme.success : theme.accent }]} />
-            <Text style={[styles.itemStatus, { color: theme.textSecondary }]} numberOfLines={1}>{item.status}</Text>
+            <View style={[styles.statusDot, { backgroundColor: theme.error }]} />
+            <Text style={[styles.itemStatus, { color: theme.textSecondary }]} numberOfLines={1}>
+              CRITICAL ALERT
+            </Text>
           </View>
           <View style={styles.dateRow}>
             <Calendar size={12} color={theme.textSecondary} style={{ marginRight: 4 }} />
             <Text style={[styles.itemDate, { color: theme.textSecondary }]}>
-              {new Date(item.timestamp).toLocaleDateString(undefined, { 
+              {new Date(Number(item.timestamp) * 1000).toLocaleString(undefined, { 
                 month: 'short', 
                 day: 'numeric',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                second: '2-digit'
               })}
             </Text>
           </View>
@@ -70,7 +93,7 @@ export default function IncidentsScreen() {
         <View style={styles.itemMeta}>
           <View style={[styles.confidenceBadge, { backgroundColor: 'rgba(234, 179, 8, 0.1)' }]}>
             <Text style={[styles.itemConfidence, { color: theme.accent }]}>
-              {(item.confidence * 100).toFixed(0)}%
+              {((item.confidence || 0) * 100).toFixed(0)}%
             </Text>
           </View>
         </View>
@@ -101,7 +124,12 @@ export default function IncidentsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />
         }
       >
-        {incidents.length > 0 ? (
+        {isLoading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color={theme.accent} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Syncing with Edge VM...</Text>
+          </View>
+        ) : incidents.length > 0 ? (
           <>
             <View style={styles.statsOverview}>
               <View style={[styles.miniStat, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -110,7 +138,7 @@ export default function IncidentsScreen() {
               </View>
               <View style={[styles.miniStat, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <ShieldCheck size={16} color={theme.success} />
-                <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>System Active</Text>
+                <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>Edge Live</Text>
               </View>
             </View>
 
@@ -118,12 +146,12 @@ export default function IncidentsScreen() {
           </>
         ) : (
           <View style={styles.emptyState}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: theme.glow }]}>
-              <Calendar size={40} color={theme.accent} />
+            <View style={[styles.emptyIconContainer, { backgroundColor: 'rgba(234, 179, 8, 0.05)' }]}>
+              <CheckCircle2 size={40} color={theme.success} />
             </View>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>History is Empty</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>All Clear</Text>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              All future 5G Edge incidents and alerts will appear here.
+              No fire incidents have been recorded by the edge AI model yet.
             </Text>
           </View>
         )}
@@ -268,5 +296,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 30,
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
