@@ -15,7 +15,7 @@ import { ChevronLeft, TrendingUp, Activity, AlertTriangle, ShieldCheck, Zap } fr
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/theme";
-import { getAnalytics } from "../../src/services/api";
+import { getLatestAlert } from "../../src/services/api";
 
 const { width } = Dimensions.get('window');
 
@@ -25,15 +25,15 @@ type Period = (typeof PERIODS)[number];
 const CHART_DATA: Record<Period, { labels: string[]; values: number[] }> = {
   Week: {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    values: [24, 18, 32, 28, 41, 35, 22],
+    values: [2, 1, 3, 0, 4, 3, 2], // Simulating incident volume
   },
   Month: {
     labels: ["W1", "W2", "W3", "W4"],
-    values: [98, 124, 87, 156],
+    values: [8, 12, 7, 15],
   },
   Year: {
     labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-    values: [320, 410, 280, 530, 380, 460, 500, 440, 520, 390, 470, 510],
+    values: [30, 41, 28, 53, 38, 46, 50, 44, 52, 39, 47, 51],
   },
 };
 
@@ -41,11 +41,16 @@ export default function AnalyticsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>("Week");
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<any>({ critical: 2, warning: 5 });
   const theme = Colors.dark;
 
   useEffect(() => {
-    getAnalytics().then(setStats).catch(() => setStats(null));
+    // Safely sync with latest data for context
+    getLatestAlert().then(data => {
+      if (data && data.event === 'fire') {
+        setStats((prev: any) => ({ ...prev, critical: prev.critical + 1 }));
+      }
+    }).catch(() => {});
   }, []);
 
   const currentData = useMemo(() => CHART_DATA[period], [period]);
