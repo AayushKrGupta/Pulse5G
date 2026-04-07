@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.aayushkrgupta.pulse5g",
       "adaptiveIcon": {
         "backgroundColor": "#151718",
         "foregroundImage": "./assets/images/5g-icon.png"
@@ -39,6 +40,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "27e9f44a-e946-4bfd-b515-6b938bf25500"
+      }
+    },
+    "owner": "aayushkr.dev"
   }
 }
