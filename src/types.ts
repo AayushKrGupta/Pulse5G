@@ -1,6 +1,6 @@
 export interface Incident {
-  event: string;
-  confidence?: number; // Optional for non-fire events
+  event: string; // "fire", "fall", "stand", "running", etc.
+  confidence?: number;
   timestamp: string | number;
-  severity: "critical" | "warning" | "info" | "fire";
+  severity?: "critical" | "warning" | "info" | "fire" | "fall";
 }
