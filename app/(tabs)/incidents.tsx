@@ -12,7 +12,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Calendar, ShieldCheck, Activity, Flame, CheckCircle2 } from 'lucide-react-native';
+import { 
+  ChevronLeft, 
+  Calendar, 
+  ShieldCheck, 
+  Activity, 
+  Flame, 
+  CheckCircle2, 
+  AlertTriangle,
+  PersonStanding,
+  Accessibility
+} from 'lucide-react-native';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/theme";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
@@ -30,9 +40,9 @@ export default function IncidentsScreen() {
   const loadIncidents = useCallback(async () => {
     try {
       const data = await getLatestAlert().catch(() => null);
-      if (data && data.event === 'fire') {
+      if (data && data.event !== 'none') {
         setIncidents(prev => {
-          // Prevent duplicates based on timestamp
+          // Prevent duplicates based on exact timestamp
           const exists = prev.some(item => item.timestamp === data.timestamp);
           if (exists) return prev;
           return [data, ...prev];
@@ -58,48 +68,73 @@ export default function IncidentsScreen() {
     setRefreshing(false);
   }, [loadIncidents]);
 
-  const renderItem = (item: Incident, index: number) => (
-    <AnimatedListItem key={`${item.timestamp}-${index}`} index={index}>
-      <TouchableOpacity 
-        activeOpacity={0.7}
-        style={[styles.historyItem, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-      >
-        <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-          <Flame size={32} color={theme.error} fill={theme.error} />
-        </View>
-        <View style={styles.itemInfo}>
-          <Text style={[styles.itemEvent, { color: theme.text }]} numberOfLines={1}>
-            🔥 Fire Detected
-          </Text>
-          <View style={styles.conditionRow}>
-            <View style={[styles.statusDot, { backgroundColor: theme.error }]} />
-            <Text style={[styles.itemStatus, { color: theme.textSecondary }]} numberOfLines={1}>
-              CRITICAL ALERT
-            </Text>
+  const getEventData = (event: string) => {
+    switch (event.toLowerCase()) {
+      case 'fire':
+        return { label: '🔥 Fire Detected', icon: Flame, color: '#DC2626', status: 'CRITICAL' };
+      case 'fall':
+        return { label: '⚠️ Fall Detected', icon: AlertTriangle, color: '#F97316', status: 'HAZARD' };
+      case 'running':
+        return { label: '🏃 Running Detected', icon: Accessibility, color: '#10B981', status: 'ACTIVE' };
+      case 'stand':
+        return { label: '🧍 Standing Detected', icon: PersonStanding, color: '#3B82F6', status: 'NORMAL' };
+      default:
+        return { 
+          label: event.charAt(0).toUpperCase() + event.slice(1), 
+          icon: Activity, 
+          color: '#3B82F6', 
+          status: 'EVENT' 
+        };
+    }
+  };
+
+  const renderItem = (item: Incident, index: number) => {
+    const { label, icon: IconComponent, color, status } = getEventData(item.event);
+
+    return (
+      <AnimatedListItem key={`${item.timestamp}-${index}`} index={index}>
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          style={[styles.historyItem, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
+            <IconComponent size={32} color={color} />
           </View>
-          <View style={styles.dateRow}>
-            <Calendar size={12} color={theme.textSecondary} style={{ marginRight: 4 }} />
-            <Text style={[styles.itemDate, { color: theme.textSecondary }]}>
-              {new Date(Number(item.timestamp) * 1000).toLocaleString(undefined, { 
-                month: 'short', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-              })}
+          <View style={styles.itemInfo}>
+            <Text style={[styles.itemEvent, { color: theme.text }]} numberOfLines={1}>
+              {label}
             </Text>
+            <View style={styles.conditionRow}>
+              <View style={[styles.statusDot, { backgroundColor: color }]} />
+              <Text style={[styles.itemStatus, { color: theme.textSecondary }]} numberOfLines={1}>
+                {status}
+              </Text>
+            </View>
+            <View style={styles.dateRow}>
+              <Calendar size={12} color={theme.textSecondary} style={{ marginRight: 4 }} />
+              <Text style={[styles.itemDate, { color: theme.textSecondary }]}>
+                {new Date(typeof item.timestamp === 'number' && item.timestamp < 1e12 ? item.timestamp * 1000 : item.timestamp).toLocaleString(undefined, { 
+                  month: 'short', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.itemMeta}>
-          <View style={[styles.confidenceBadge, { backgroundColor: 'rgba(234, 179, 8, 0.1)' }]}>
-            <Text style={[styles.itemConfidence, { color: theme.accent }]}>
-              {((item.confidence || 0) * 100).toFixed(0)}%
-            </Text>
+          <View style={styles.itemMeta}>
+            {item.confidence && (
+              <View style={[styles.confidenceBadge, { backgroundColor: `${color}10` }]}>
+                <Text style={[styles.itemConfidence, { color: color }]}>
+                  {(item.confidence * 100).toFixed(0)}%
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
-      </TouchableOpacity>
-    </AnimatedListItem>
-  );
+        </TouchableOpacity>
+      </AnimatedListItem>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -113,7 +148,7 @@ export default function IncidentsScreen() {
         >
           <ChevronLeft size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Incident History</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Activity History</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -127,18 +162,18 @@ export default function IncidentsScreen() {
         {isLoading ? (
           <View style={styles.loadingState}>
             <ActivityIndicator size="large" color={theme.accent} />
-            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Syncing with Edge VM...</Text>
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Syncing with Edge AI...</Text>
           </View>
         ) : incidents.length > 0 ? (
           <>
             <View style={styles.statsOverview}>
               <View style={[styles.miniStat, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <Activity size={16} color={theme.accent} />
-                <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>Total: <Text style={{ color: theme.text, fontWeight: '700' }}>{incidents.length}</Text></Text>
+                <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>Logs: <Text style={{ color: theme.text, fontWeight: '700' }}>{incidents.length}</Text></Text>
               </View>
               <View style={[styles.miniStat, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <ShieldCheck size={16} color={theme.success} />
-                <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>Edge Live</Text>
+                <Text style={[styles.miniStatText, { color: theme.textSecondary }]}>Edge Node Live</Text>
               </View>
             </View>
 
@@ -149,9 +184,9 @@ export default function IncidentsScreen() {
             <View style={[styles.emptyIconContainer, { backgroundColor: 'rgba(234, 179, 8, 0.05)' }]}>
               <CheckCircle2 size={40} color={theme.success} />
             </View>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>All Clear</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Monitoring Active</Text>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              No fire incidents have been recorded by the edge AI model yet.
+              The Edge AI is currently monitoring for falls and activities. No significant incidents recorded yet.
             </Text>
           </View>
         )}
@@ -185,13 +220,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  clearButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   scrollContent: {
     padding: 20,
   },
@@ -222,8 +250,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   iconContainer: {
-    width: 68,
-    height: 68,
+    width: 62,
+    height: 62,
     borderRadius: 18,
     marginRight: 16,
     justifyContent: 'center',
@@ -233,9 +261,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemEvent: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   conditionRow: {
     flexDirection: 'row',
@@ -249,8 +277,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   itemStatus: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   dateRow: {
     flexDirection: 'row',
@@ -264,12 +293,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   confidenceBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   itemConfidence: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
   },
   emptyState: {
@@ -279,23 +308,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     marginBottom: 10,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
+    lineHeight: 22,
   },
   loadingState: {
     flex: 1,
