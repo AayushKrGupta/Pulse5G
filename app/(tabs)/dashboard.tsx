@@ -19,7 +19,8 @@ import {
   Target, 
   ChevronRight,
   Flame,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -111,6 +112,8 @@ export default function Dashboard() {
   }, [accuracyHistory]);
 
   const isFireDetected = currentAlert?.event === 'fire';
+  const isFallDetected = currentAlert?.event === 'fall';
+  const isPriorityAlert = isFireDetected || isFallDetected;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -141,18 +144,18 @@ export default function Dashboard() {
         {/* Primary Stats Grid */}
         <View style={styles.statsRow}>
           <View style={[styles.statCardFull, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={[styles.statIconBadge, { backgroundColor: isFireDetected ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}>
-              {isFireDetected ? <Flame size={20} color={theme.error} /> : <ShieldCheck size={20} color={theme.success} />}
+            <View style={[styles.statIconBadge, { backgroundColor: isPriorityAlert ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}>
+              {isFireDetected ? <Flame size={20} color={theme.error} /> : isFallDetected ? <AlertTriangle size={20} color={theme.error} /> : <ShieldCheck size={20} color={theme.success} />}
             </View>
             <View>
               <Text style={[styles.statLabel, { color: theme.textSecondary }]}>System Status</Text>
               <View style={styles.statValueRow}>
-                <Text style={[styles.statValueLarge, { color: isFireDetected ? theme.error : theme.text }]}>
-                  {isFireDetected ? "FIRE ALARM" : "SECURE"}
+                <Text style={[styles.statValueLarge, { color: isPriorityAlert ? theme.error : theme.text }]}>
+                  {isFireDetected ? "FIRE ALARM" : isFallDetected ? "FALL DETECTED" : "SECURE"}
                 </Text>
-                <View style={[styles.trendBadge, { backgroundColor: isFireDetected ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)' }]}>
-                  <Text style={[styles.trendText, { color: isFireDetected ? theme.error : theme.success }]}>
-                    {isFireDetected ? "CRITICAL" : "OPTIMAL"}
+                <View style={[styles.trendBadge, { backgroundColor: isPriorityAlert ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Text style={[styles.trendText, { color: isPriorityAlert ? theme.error : theme.success }]}>
+                    {isPriorityAlert ? "CRITICAL" : "OPTIMAL"}
                   </Text>
                 </View>
               </View>
