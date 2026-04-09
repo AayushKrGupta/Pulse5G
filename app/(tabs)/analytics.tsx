@@ -47,7 +47,7 @@ export default function AnalyticsScreen() {
   useEffect(() => {
     // Safely sync with latest data for context
     getLatestAlert().then(data => {
-      if (data && data.event === 'fire') {
+      if (data && (data.event === 'fire' || data.event === 'fall')) {
         setStats((prev: any) => ({ ...prev, critical: prev.critical + 1 }));
       }
     }).catch(() => {});
