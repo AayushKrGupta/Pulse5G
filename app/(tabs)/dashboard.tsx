@@ -59,10 +59,11 @@ export default function Dashboard() {
       });
     }
 
-    if (data.event === 'fire') {
+    if (data.event === 'fire' || data.event === 'fall') {
       setAlerts((prev) => {
-         if (prev.length > 0 && prev[0].timestamp === data.timestamp) return prev;
-         return [data, ...prev];
+         // Keep unique by timestamp
+         if (prev.length > 0 && prev.some(a => a.timestamp === data.timestamp)) return prev;
+         return [data, ...prev].slice(0, 10); // Keep last 10 for dashboard
       });
     }
   }, []);
@@ -237,7 +238,7 @@ export default function Dashboard() {
         {alerts.length === 0 ? (
           <View style={[styles.noAlertsCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <CheckCircle2 size={24} color={theme.success} style={{ marginBottom: 8 }} />
-            <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>No active fire detected</Text>
+            <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>No critical incidents detected</Text>
           </View>
         ) : (
           alerts.slice(0, 5).map((item, idx) => (
