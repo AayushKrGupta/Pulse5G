@@ -45,11 +45,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="network"
         options={{
-          tabBarLabel: "Analytics",
+          tabBarLabel: "Network",
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name="stats-chart" color={color} size={24} focused={focused} />
+            <TabBarIcon name="wifi" color={color} size={24} focused={focused} />
           ),
         }}
       />
