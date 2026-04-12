@@ -1,10 +1,10 @@
-const BASE_URL = "http://172.16.0.17:8000";
+import { getBaseUrl } from './config';
 
 export const getLatestAlert = async () => {
-  const res = await fetch(`${BASE_URL}/`);
+  const res = await fetch(`${getBaseUrl()}/`);
   return res.json();
 };
 
 export const getVideoStreamUrl = () => {
-  return `${BASE_URL}/video`;
+  return `${getBaseUrl()}/video`;
 };
