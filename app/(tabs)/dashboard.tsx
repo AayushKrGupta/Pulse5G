@@ -1,36 +1,36 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  StatusBar,
-  Dimensions,
-  RefreshControl,
-  TouchableOpacity,
-  SafeAreaView,
-  Platform,
-} from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { 
-  Activity, 
-  ShieldCheck, 
-  Target, 
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
   ChevronRight,
   Flame,
-  CheckCircle2,
-  AlertTriangle
+  ShieldCheck,
+  Target
 } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Dimensions,
+  Platform,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../constants/theme";
-import { getLatestAlert } from "../../src/services/api";
-import { connectAlertsSocket } from "../../src/services/websocket";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
 import { ShadowCard } from "../../components/ui/ShadowCard";
+import { Colors } from "../../constants/theme";
 import AlertCard from "../../src/components/AlertCard";
 import LiveVideoStream from "../../src/components/LiveVideoStream";
+import { getLatestAlert } from "../../src/services/api";
+import { connectAlertsSocket } from "../../src/services/websocket";
 
 const { width } = Dimensions.get('window');
 
@@ -48,10 +48,12 @@ export default function Dashboard() {
   const theme = Colors.dark;
 
   const processNewData = useCallback((data: any) => {
+    console.log("📥 Edge Data Received:", data);
     setCurrentAlert(data);
-    
+
     // Update accuracy history if data has confidence
     if (data.confidence !== undefined) {
+      console.log("📊 Updating Accuracy:", data.confidence);
       setAccuracyHistory(prev => {
         const newHistory = [...prev, data.confidence * 100];
         // Keep last 10 points for the chart
@@ -60,10 +62,11 @@ export default function Dashboard() {
     }
 
     if (data.event === 'fire' || data.event === 'fall') {
+      console.log("🚨 ALARM TRIGGERED:", data.event);
       setAlerts((prev) => {
-         // Keep unique by timestamp
-         if (prev.length > 0 && prev.some(a => a.timestamp === data.timestamp)) return prev;
-         return [data, ...prev].slice(0, 10); // Keep last 10 for dashboard
+        // Keep unique by timestamp
+        if (prev.length > 0 && prev.some(a => a.timestamp === data.timestamp)) return prev;
+        return [data, ...prev].slice(0, 10); // Keep last 10 for dashboard
       });
     }
   }, []);
@@ -81,10 +84,23 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData();
-    const ws = connectAlertsSocket((data) => {
+
+    // Connect to WebSocket
+    let ws = connectAlertsSocket((data) => {
       processNewData(data);
     });
-    return () => ws.close();
+
+    // Also listen for IP changes to trigger a full refresh
+    const { subscribeToIpChanges } = require("../../src/services/config");
+    const unsubscribe = subscribeToIpChanges(() => {
+      loadData();
+      if (ws) ws.close(); // This will trigger the socket to reconnect to the new IP
+    });
+
+    return () => {
+      ws.close();
+      unsubscribe();
+    };
   }, [loadData, processNewData]);
 
   const onRefresh = useCallback(async () => {
@@ -119,7 +135,7 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle="light-content" />
-      
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingTop: Platform.OS === 'android' ? insets.top : 10 }]}
@@ -134,9 +150,9 @@ export default function Dashboard() {
             <Text style={[styles.headerTitle, { color: theme.text }]}>Dashboard</Text>
           </View>
           <TouchableOpacity style={[styles.profileButton, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Image 
-              source={require('../../assets/images/5g.avif')} 
-              style={styles.headerLogo} 
+            <Image
+              source={require('../../assets/images/5g.avif')}
+              style={styles.headerLogo}
               contentFit="cover"
             />
           </TouchableOpacity>
@@ -195,7 +211,7 @@ export default function Dashboard() {
               <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '700' }}>LIVE MONITORING</Text>
             </View>
           </View>
-          
+
           <LineChart
             data={chartData}
             width={width - 40}
@@ -249,7 +265,7 @@ export default function Dashboard() {
             </AnimatedListItem>
           ))
         )}
-        
+
         {/* Extra space for floating bottom bar */}
         <View style={{ height: 110 }} />
       </ScrollView>
@@ -391,7 +407,7 @@ const styles = StyleSheet.create({
   chartStyle: {
     marginVertical: 8,
     borderRadius: 16,
-    marginLeft: -20, 
+    marginLeft: -20,
   },
   sectionHeader: {
     flexDirection: 'row',
