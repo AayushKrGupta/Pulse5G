@@ -1,3 +1,5 @@
+import { getWsUrl, subscribeToIpChanges } from './config';
+
 export const connectAlertsSocket = (onMessage: (data: any) => void) => {
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -5,7 +7,7 @@ export const connectAlertsSocket = (onMessage: (data: any) => void) => {
 
   const connect = () => {
     try {
-      ws = new WebSocket("ws://172.16.0.17:8000/ws");
+      ws = new WebSocket(getWsUrl());
 
       ws.onopen = () => {
         console.log('🔥 Connected to fire detection WebSocket');
@@ -40,10 +42,20 @@ export const connectAlertsSocket = (onMessage: (data: any) => void) => {
 
   connect();
 
+  // Re-connect ONLY IF IP changes
+  const unsubscribe = subscribeToIpChanges(() => {
+    if (ws) {
+      console.log("🔄 Config changed, reconnecting WebSocket...");
+      ws.close();
+      connect(); // Reconnect immediately with NEW IP
+    }
+  });
+
   // Return a close-able object
   return {
     close: () => {
       isClosed = true;
+      unsubscribe();
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) ws.close();
     },
