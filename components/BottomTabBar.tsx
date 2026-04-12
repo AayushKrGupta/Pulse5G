@@ -1,9 +1,8 @@
-import React from 'react';
-import { Platform, StyleSheet, View, Text } from "react-native";
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LucideIcons from 'lucide-react-native';
-import { Colors } from '../constants/theme';
+import React from 'react';
+import { Platform, StyleSheet, View } from "react-native";
 
 /**
  * Spotify-inspired Bottom Navigation Bar
@@ -47,15 +46,16 @@ export function TabBarIcon({ name, color, size = 24, focused }: TabBarIconProps)
     'alert-circle': LucideIcons.AlertCircle,
     'stats-chart': LucideIcons.Activity,
     'camera': LucideIcons.Camera,
+    'wifi': LucideIcons.Wifi,
   };
 
   const IconComponent = iconMap[name] || LucideIcons.HelpCircle;
 
   return (
-    <IconComponent 
-      size={size} 
-      color={focused ? TAB_BAR_CONFIG.accentColor : color} 
-      strokeWidth={focused ? 2.5 : 2} 
+    <IconComponent
+      size={size}
+      color={focused ? TAB_BAR_CONFIG.accentColor : color}
+      strokeWidth={focused ? 2.5 : 2}
     />
   );
 }
