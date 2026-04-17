@@ -1,12 +1,28 @@
+import * as SecureStore from 'expo-secure-store';
 
 // Global state for server configuration
 let serverIp = "172.16.0.17"; // Default initial IP pointing to your Edge VM
 let listeners: ((ip: string) => void)[] = [];
 
+const STORAGE_KEY = 'pulse5g_server_ip';
+
+// Initialize: Try to load from storage
+SecureStore.getItemAsync(STORAGE_KEY).then(savedIp => {
+    if (savedIp) {
+        serverIp = savedIp;
+        listeners.forEach(l => l(serverIp));
+    }
+});
+
 export const getServerIp = () => serverIp;
 
 export const setServerIp = (newIp: string) => {
     serverIp = newIp;
+    // Save to permanent storage
+    SecureStore.setItemAsync(STORAGE_KEY, newIp).catch(err => {
+        console.error("Failed to save IP to storage:", err);
+    });
+    
     listeners.forEach(l => l(newIp));
 };
 
