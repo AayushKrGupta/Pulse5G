@@ -49,6 +49,13 @@ export default function Dashboard() {
 
   const processNewData = useCallback((data: any) => {
     console.log("📥 Edge Data Received:", data);
+
+    // 🔥 FILTER: Only process ANY update if confidence > 60%
+    if (data.confidence !== undefined && data.confidence < 0.6) {
+      console.log("⏭️ Skipping low confidence detection:", data.confidence);
+      return;
+    }
+
     setCurrentAlert(data);
 
     // Update accuracy history if data has confidence
@@ -61,12 +68,15 @@ export default function Dashboard() {
       });
     }
 
-    if (data.event === 'fire' || data.event === 'fall') {
-      console.log("🚨 ALARM TRIGGERED:", data.event);
+    if (data.event && data.event !== 'none') {
+      console.log("🚨 INCIDENT RECORDED:", data.event);
       setAlerts((prev) => {
         // Keep unique by timestamp
-        if (prev.length > 0 && prev.some(a => a.timestamp === data.timestamp)) return prev;
-        return [data, ...prev].slice(0, 10); // Keep last 10 for dashboard
+        const exists = prev.some(a => a.timestamp === data.timestamp);
+        if (exists) return prev;
+        
+        // Add new alert and keep last 10
+        return [data, ...prev].slice(0, 10);
       });
     }
   }, []);
@@ -85,20 +95,24 @@ export default function Dashboard() {
   useEffect(() => {
     loadData();
 
-    // Connect to WebSocket
+    // 1. Connect to WebSocket for real-time push
     let ws = connectAlertsSocket((data) => {
       processNewData(data);
     });
 
-    // Also listen for IP changes to trigger a full refresh
+    // 2. Add polling as a fallback (Reduced to 1s for instant feedback)
+    const pollInterval = setInterval(loadData, 1000);
+
+    // 3. Listen for IP changes to trigger a full refresh
     const { subscribeToIpChanges } = require("../../src/services/config");
     const unsubscribe = subscribeToIpChanges(() => {
       loadData();
-      if (ws) ws.close(); // This will trigger the socket to reconnect to the new IP
+      if (ws) ws.close(); // Socket will reconnect in its own internal logic
     });
 
     return () => {
       ws.close();
+      clearInterval(pollInterval);
       unsubscribe();
     };
   }, [loadData, processNewData]);
@@ -117,11 +131,16 @@ export default function Dashboard() {
   }, [accuracyHistory]);
 
   const chartData = useMemo(() => {
-    const dataPoints = accuracyHistory.length >= 2 ? accuracyHistory : [75, 82, 88, 92, 95, 98, 99];
+    // If we have any live data points, show them. Otherwise show dummy data.
+    const dataPoints = accuracyHistory.length >= 1 ? accuracyHistory : [75, 82, 88, 92, 95, 98, 99];
+    
+    // If only one point, duplicate it to show a line
+    const finalPoints = dataPoints.length === 1 ? [dataPoints[0], dataPoints[0]] : dataPoints;
+
     return {
-      labels: Array(dataPoints.length).fill('').map((_, i) => `${i + 1}`),
+      labels: Array(finalPoints.length).fill('').map((_, i) => `${i + 1}`),
       datasets: [{
-        data: dataPoints,
+        data: finalPoints,
         color: (opacity = 1) => `rgba(234, 179, 8, ${opacity})`,
         strokeWidth: 3
       }]
