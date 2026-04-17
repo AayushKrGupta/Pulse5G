@@ -13,6 +13,11 @@
     },
     "android": {
       "package": "com.aayushkrgupta.pulse5g",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#151718",
         "foregroundImage": "./assets/images/5g-icon.png"
@@ -27,6 +32,7 @@
     },
     "plugins": [
       "expo-router",
+      "./scripts/network-fix",
       [
         "expo-splash-screen",
         {
@@ -35,7 +41,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#151718"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
