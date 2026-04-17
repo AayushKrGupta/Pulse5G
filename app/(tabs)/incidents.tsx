@@ -21,8 +21,10 @@ import {
   CheckCircle2, 
   AlertTriangle,
   PersonStanding,
-  Accessibility
+  Accessibility,
+  Trash2
 } from 'lucide-react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/theme";
 import { AnimatedListItem } from "../../components/ui/AnimatedListItem";
@@ -36,11 +38,56 @@ export default function IncidentsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const theme = Colors.dark;
+  const HISTORY_KEY = 'pulse5g_incident_history';
+
+  // 1. Load history from SecureStore on mount
+  useEffect(() => {
+    const loadStoredHistory = async () => {
+      try {
+        const stored = await SecureStore.getItemAsync(HISTORY_KEY);
+        if (stored) {
+          setIncidents(JSON.parse(stored));
+        }
+      } catch (err) {
+        console.error("Failed to load history:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadStoredHistory();
+  }, []);
+
+  // 2. Save history to SecureStore whenever incidents change
+  useEffect(() => {
+    const saveHistory = async () => {
+      try {
+        const dataToSave = JSON.stringify(incidents);
+        // SecureStore has a 2048 byte limit. If we exceed it, keep only recent ones.
+        if (dataToSave.length > 2000) {
+          const truncated = incidents.slice(0, Math.floor(incidents.length / 2));
+          await SecureStore.setItemAsync(HISTORY_KEY, JSON.stringify(truncated));
+        } else {
+          await SecureStore.setItemAsync(HISTORY_KEY, dataToSave);
+        }
+      } catch (err) {
+        console.error("Failed to save history:", err);
+      }
+    };
+    if (incidents.length > 0) {
+      saveHistory();
+    }
+  }, [incidents]);
 
   const loadIncidents = useCallback(async () => {
     try {
       const data = await getLatestAlert().catch(() => null);
       if (data && data.event !== 'none') {
+        // 🔥 FILTER: Only keep incidents with confidence > 60%
+        if (data.confidence !== undefined && data.confidence < 0.6) {
+          console.log("⏭️ Skipping low confidence incident history:", data.confidence);
+          return;
+        }
+
         setIncidents(prev => {
           // Prevent duplicates based on exact timestamp
           const exists = prev.some(item => item.timestamp === data.timestamp);
@@ -57,8 +104,8 @@ export default function IncidentsScreen() {
 
   useEffect(() => {
     loadIncidents();
-    // Poll for changes every 10 seconds for the history screen
-    const interval = setInterval(loadIncidents, 10000);
+    // Poll for changes every 1 second for instant history updates
+    const interval = setInterval(loadIncidents, 1000);
     return () => clearInterval(interval);
   }, [loadIncidents]);
 
@@ -67,6 +114,15 @@ export default function IncidentsScreen() {
     await loadIncidents();
     setRefreshing(false);
   }, [loadIncidents]);
+
+  const clearHistory = async () => {
+    try {
+      await SecureStore.deleteItemAsync(HISTORY_KEY);
+      setIncidents([]);
+    } catch (err) {
+      console.error("Failed to clear history:", err);
+    }
+  };
 
   const getEventData = (event: string) => {
     switch (event.toLowerCase()) {
@@ -149,7 +205,12 @@ export default function IncidentsScreen() {
           <ChevronLeft size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Activity History</Text>
-        <View style={{ width: 44 }} />
+        <TouchableOpacity 
+          onPress={clearHistory}
+          style={[styles.backButton, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+        >
+          <Trash2 size={20} color={theme.error} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
