@@ -19,7 +19,7 @@ export default function TabLayout() {
         ...tabBarOptions,
         tabBarButton: (props) => (
           <HapticTab {...props}>
-            <TabBarItemWrapper focused={!!props.focused}>
+            <TabBarItemWrapper focused={!!props.accessibilityState?.selected}>
               {props.children}
             </TabBarItemWrapper>
           </HapticTab>
