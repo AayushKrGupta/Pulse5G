@@ -28,14 +28,14 @@ export const connectAlertsSocket = (onMessage: (data: any) => void) => {
 
       ws.onclose = () => {
         if (!isClosed) {
-          // Auto-reconnect after 5 seconds
-          reconnectTimer = setTimeout(connect, 5000);
+          // Auto-reconnect after 1 second
+          reconnectTimer = setTimeout(connect, 1000);
         }
       };
     } catch (err) {
       // Connection failed, retry
       if (!isClosed) {
-        reconnectTimer = setTimeout(connect, 5000);
+        reconnectTimer = setTimeout(connect, 1000);
       }
     }
   };
