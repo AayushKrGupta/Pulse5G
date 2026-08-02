@@ -1,50 +1,136 @@
 # Pulse5G
 
-5G Edge-Based Real-Time Incident Detection & Alerting System
+<p align="center">
+  <img src="assets/images/icon.png" width="150" alt="Pulse5G Logo">
+</p>
 
-## Get started
+<h3 align="center">5G Edge-Based Real-Time Incident Detection & Alerting System</h3>
 
-1. Install dependencies
+<p align="center">
+  A smart emergency response platform designed to leverage the power of 5G networks, edge computing, and real-time analytics to detect incidents and deliver instant alerts.
+</p>
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## ✨ Features
 
-   ```bash
-   npx expo start
-   ```
+* 🚨 Real-time incident detection and alerting
+* 📍 Live location tracking and geofencing
+* 📡 Low-latency communication powered by 5G architecture
+* ☁️ Edge-based data processing
+* 📊 Interactive dashboard and analytics
+* 🔔 Push notifications for critical incidents
+* 📱 Cross-platform mobile application built with Expo and React Native
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🛠️ Tech Stack
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+* **Frontend:** React Native, Expo, TypeScript
+* **Navigation:** Expo Router
+* **Styling:** NativeWind
+* **Backend:** Firebase
+* **Database:** Firestore
+* **Authentication:** Firebase Authentication
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## 📸 Screenshots
+
+<p align="center">
+  <img src="https://github.com/AayushKrGupta/Pulse5G/blob/main/assets/images/screenshot1.jpeg" width="250">
+  <img src="https://github.com/AayushKrGupta/Pulse5G/blob/main/assets/images/screenshot2.jpeg" width="250">
+  <img src="https://github.com/AayushKrGupta/Pulse5G/blob/main/assets/images/screenshot3.jpeg" width="250">
+</p>
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/AayushKrGupta/Pulse5G.git
+cd Pulse5G
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Start the application
+
+```bash
+npx expo start
+```
+
+You can run the application using:
+
+* Android Emulator
+* iOS Simulator
+* Expo Go
+* Development Build
+
+---
+
+## 📂 Project Structure
+
+```text
+Pulse5G/
+├── app/
+├── assets/
+├── components/
+├── constants/
+├── hooks/
+├── services/
+├── utils/
+├── package.json
+└── README.md
+```
+
+---
+
+## 🔧 Development
+
+Start developing by editing the files inside the `app` directory.
+
+The project uses Expo's file-based routing system.
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 📖 Documentation
 
-To learn more about developing your project with Expo, look at the following resources:
+* Expo Documentation
+* React Native Documentation
+* Expo Router Documentation
+* Firebase Documentation
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## 🤝 Contributing
 
-Join our community of developers creating universal apps.
+Contributions are welcome.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. Fork the repository.
+2. Create a feature branch.
+3. Commit your changes.
+4. Push the branch.
+5. Open a pull request.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License.
+
+---
+
+<p align="center">
+Made with ❤️ by Aayush Kumar
+</p>
